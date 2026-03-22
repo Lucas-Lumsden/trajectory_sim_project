@@ -81,7 +81,7 @@ int main(){
 
     std::vector<float> path;
     double lastTime = glfwGetTime();
-    double frameDelay = 1.0/120.0;
+    double frameDelay = 1.0/240.0;
 
     //render
     while(!glfwWindowShouldClose(window)){

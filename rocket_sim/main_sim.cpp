@@ -55,7 +55,7 @@ if(!save.is_open()){
 
     double t = 0.0;
     double dt = 0.1;
-    double dur = 60;
+    double dur = 600;
 
     double vx = 0.0, vy = 0.0;
     double px = 0.0, py = 0.0;
