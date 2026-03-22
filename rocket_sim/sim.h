@@ -77,33 +77,43 @@ struct SimState {
         while(test_t <= dur){
             test_t += test_dt;
             test_ax = 0.0; test_ay = -9.8;
+            
             if(test_t < bt){
                 test_ax += calc_ax(test_fx, mass);
                 test_ay += calc_ay(test_fy, mass) + 9.8;
             }
             test_vel = sqrt(test_vx*test_vx + test_vy*test_vy);
+       
             if(test_vel > 0){
-                if(test_py >= 100000){
-                        test_den = 0;
-                }   else if(test_py >= 84852){
-                        test_den = 0.000007;
-                }   else if(test_py >= 30000){
-                        test_den = 0.018;
-                }   else if(test_py >= 20000){
-                        test_den = 0.088;
-                }   else if(test_py >= 11000){
-                        test_den = 0.364;
-                }   else if(test_py >= 10000){
-                      test_den = 10.413;
-                }   else if(test_py >= 5000){
-                        test_den = 10.736;
-                }   else if(test_py >= 2000){
-                        test_den = 1.007;
-                }   else if(test_py >= 30000){
-                        test_den = 1.112;
-                }   else if (test_py >= 1000){
-                        test_den = 1.225;
-                }
+                if(test_py >= 90000)
+                            test_den = 0;
+                    else if(test_py >= 84852)
+                            test_den = 0.00001;
+                    else if(test_py >= 70000) 
+                            test_den = 0.00008;
+                    else if(test_py >= 60000) 
+                            test_den = 0.0003;
+                    else if(test_py >= 50000) 
+                            test_den = 0.001;
+                    else if(test_py >= 40000) 
+                            test_den = 0.004;
+                    else if(test_py >= 30000) 
+                            test_den = 0.018;
+                    else if(test_py >= 20000) 
+                            test_den = 0.088;
+                    else if(test_py >= 15000) 
+                            test_den = 0.195;
+                    else if(test_py >= 11000) 
+                            test_den = 0.364;
+                    else if(test_py >= 10000) 
+                            test_den = 0.413;
+                    else if(test_py >= 5000) 
+                            test_den = 0.736;
+                    else if(test_py >= 2000) 
+                            test_den = 1.007;
+                    else if (test_py >=1000) 
+                            test_den = 1.112;
+                    else test_den = 1.225;
 
                 double drag = calc_drag(test_vel, test_den, dcoef, area);
                 test_ax -= (drag/mass)*(test_vx/test_vel);
