@@ -1,4 +1,4 @@
-This is the first iteration of my trajectory sim.
+This is the first iteration of my trajectory sim, made in ~9 hours.
 
 Start the program by running build.ps1
 
