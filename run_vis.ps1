@@ -1,2 +1,2 @@
-cd "C:\Users\lucge\physics_sim_project"
+cd "WHERE YOU STORED IT"
 .\opengl_stuff\openglwin.exe
