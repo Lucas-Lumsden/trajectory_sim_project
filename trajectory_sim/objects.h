@@ -13,11 +13,11 @@ struct EulerAngles{
     double roll, pitch, yaw;
 };
 
-class rocket{
+class object{
 
     public:
 
-    void init_rocket (float start_pitch, float start_yaw){
+    void init_object (float start_pitch, float start_yaw){
 
         pos.x = 0.0f;
         pos.y = 0.0f;

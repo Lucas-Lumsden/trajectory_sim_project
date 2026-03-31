@@ -1,8 +1,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include "rocket_sim/sim.h"
-#include "rocket_sim/objects.h"
-#include "rocket_sim/math.h"
+#include "trajectory_sim/sim.h"
+#include "trajectory_sim/objects.h"
+#include "trajectory_sim/math.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
@@ -14,12 +14,18 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 static bool orbiting = false;
 static double lastx = 0.0f, lasty = 0.0;
 static float camYaw = 45.0f;
 static float camPitch = 20.0f;
 static float camRadius = 5.0f;
+
+//cached orientation preventing flips near 180°
+static glm::quat gVelFacing = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+static bool gPrintedVelDebugHeader = false;
+static int gVelDebugCount = 0;
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos){
     
@@ -65,22 +71,22 @@ int main(){
         load.close();
     } else {
         sim.start_pitch = 90.0f;
-        sim.start_yaw = 0.0f;  // default values
+        sim.start_yaw = 0.0f;  //default values
     }
 
     sim.init(sim.mass, sim.force, sim.start_pitch, sim.start_yaw, sim.bt, sim.dcoef, sim.area);
 
-//find scale
+    //find scale
     double scale = sim.calcScale();
 
-//window
+    //window
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
     glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
-    GLFWwindow* window = glfwCreateWindow(1200, 700, "Rocket Sim", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(1200, 700, "Trajectory Sim", NULL, NULL);
     if(!window){ glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
@@ -89,12 +95,12 @@ int main(){
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1200.0f / 700.0f, 0.1f, 100.0f); // CHECk
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1200.0f / 700.0f, 0.1f, 100.0f); //CHECk
 
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixf(glm::value_ptr(projection));
 
-//imgui begins
+    //imgui begins
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -105,7 +111,7 @@ int main(){
     double lastTime = glfwGetTime();
     double frameDelay = 1.0/240.0;
 
-//render
+    //render
     while(!glfwWindowShouldClose(window)){
 
         float yawRad = glm::radians(camYaw);
@@ -151,13 +157,13 @@ int main(){
 
         ImGui::SetNextWindowPos(ImVec2(900, 10), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(290, 420), ImGuiCond_Always);
-        ImGui::Begin("Rocket Parameters");
+        ImGui::Begin("Object Parameters");
 
         ImGui::InputFloat("Mass (kg)", &sim.mass, 0.0f, 0.0f);
         ImGui::InputFloat("Force (N)", &sim.force, 0.0f, 0.0f);
         ImGui::InputFloat("Pitch (deg)", &sim.start_pitch, 0.0f, 0.0f);
         ImGui::InputFloat("Yaw (deg)", &sim.start_yaw, 0.0f, 0.0f);
-        //ImGui::InputFloat("Roll (deg)", &sim.roll, 0.0f, 0.0f);   // CHECK if  this makes a diff, then how to do
+        //ImGui::InputFloat("Roll (deg)", &sim.roll, 0.0f, 0.0f);   //CHECK if  this makes a diff, then how to do
         ImGui::InputFloat("Burn time (s)", &sim.bt, 0.0f, 0.0f);
         ImGui::InputFloat("Drag coef", &sim.dcoef, 0.0f, 0.0f);
         ImGui::InputFloat("Frontal area (kg/m^3)", &sim.area, 0.0f, 0.0f);
@@ -204,28 +210,28 @@ int main(){
 
         }
 
-// x axis
+        //x axis
         glBegin(GL_LINES);
             glColor3f(1.0f, 0.0f, 0.0f);
             glVertex3f(-0.9f, -0.9f, 0.0f);
             glVertex3f(0.9f, -0.9f, 0.0);
         glEnd();
 
-// y axis
+        //y axis
         glBegin(GL_LINES);
             glColor3f(0.0f, 1.0f, 0.0f);
             glVertex3f(-0.9f, -0.9f, 0.0f);
             glVertex3f(-0.9f, 0.9f, 0.0f);
         glEnd();
 
-// z axis
+        //z axis
         glBegin(GL_LINES);
             glColor3f(0.0f, 0.0f, 1.0f);
-            glVertex3f(-0.9f, -0.9f, 0.9f); // end point
-            glVertex3f(-0.9f, -0.9f, 0.0f); // start point
+            glVertex3f(-0.9f, -0.9f, 0.9f); //end point
+            glVertex3f(-0.9f, -0.9f, 0.0f); //start point
         glEnd();
 
-//path
+        //path
         glBegin(GL_LINE_STRIP);
             glColor3f(1.0f, 1.0f, 0.0f);
             for(int i = 0; i < (int)path.size(); i += 3)
@@ -239,18 +245,69 @@ int main(){
 
             float size = 0.02f;
 
-            glm::quat orientation(
+            //point pyramid in dir of flight when vel > 0
+            //only visual no phys changes
+            glm::quat orientation;
+            if(sim.vel > 1e-3){
+                glm::vec3 vhat = glm::normalize(glm::vec3((float)sim.vx, (float)sim.vy, (float)sim.vz));
+                
+                //stable quaternion rotate (nose) to vhat
+                //avoids matrix to quat convention issues
+                const glm::vec3 from = glm::vec3(0.0f, 1.0f, 0.0f);
+                const float d = glm::clamp(glm::dot(from, vhat), -1.0f, 1.0f);
+                glm::quat target;
+                
+                if(d < -0.9999f){
+                    //fixed axis perpendicular to +Y (+X)
+                    target = glm::quat(0.0f, 1.0f, 0.0f, 0.0f);
+                } else {
+                    const glm::vec3 c = glm::cross(from, vhat);
+                    target = glm::normalize(glm::quat(1.0f + d, c.x, c.y, c.z));
+                }
 
-                (float) sim.q_w,
-                (float) sim.q_x,
-                (float) sim.q_y,
-                (float) sim.q_z
+                //quaternion sign stay the same (q and -q are the same rotation)
+                if(glm::dot(gVelFacing, target) < 0.0f){
+                    target = -target;
+                }
 
-            );
+                //avoid instant axis switch at ~180°.
+                gVelFacing = glm::normalize(glm::slerp(gVelFacing, target, 0.25f));
+                orientation = gVelFacing;
+            
+            } else {
+                
+                //normalize
+                orientation = glm::normalize(glm::quat(
+                    (float)sim.q_w,
+                    (float)sim.q_x,
+                    (float)sim.q_y,
+                    (float)sim.q_z
+                ));
+                orientation = glm::conjugate(orientation);
 
-                glm::quat currentOrientation;
-                float angle = glm::radians(45.0f);
-                glm::vec3 axis = glm::vec3(0.0f, 1.0f, 0.0f);
+                //reset cached value
+                gVelFacing = orientation;
+
+            }
+
+            //debug
+            if(!gPrintedVelDebugHeader){
+                std::cout << "[vel-face debug] printing ~10Hz while launched" << std::endl;
+                gPrintedVelDebugHeader = true;
+            }
+
+            if(gVelDebugCount++ % 24 == 0){
+                //nose axis in world after applying `orientation` is local +Y rotated by that quat
+                const glm::vec3 noseWorld = glm::normalize(orientation * glm::vec3(0.0f, 1.0f, 0.0f));
+                const glm::vec3 vWorld = glm::normalize(glm::vec3((float)sim.vx, (float)sim.vy, (float)sim.vz));
+                const float align = glm::clamp(glm::dot(noseWorld, vWorld), -1.0f, 1.0f);
+                std::cout << "t=" << sim.t
+                          << " vel=" << sim.vel
+                          << " vhat=(" << vWorld.x << "," << vWorld.y << "," << vWorld.z << ")"
+                          << " nose=(" << noseWorld.x << "," << noseWorld.y << "," << noseWorld.z << ")"
+                          << " dot=" << align
+                          << std::endl;
+            }
 
         glPushMatrix();
         
@@ -259,45 +316,45 @@ int main(){
         model = model * glm::mat4_cast(orientation);
         glMultMatrixf(glm::value_ptr(model));
             
-        float nose[] = {0.0f, size*2, 0.0f};    // nose
-        float b1[] = {size, -size, size};   // base front right
-        float b2[] = {-size, -size, size};  // base front left
-        float b3[] = {-size, -size, -size}; // base back left
-        float b4[] = {size, -size, -size};  // base back right
+        float nose[] = {0.0f, size*2, 0.0f};    //nose
+        float b1[] = {size, -size, size};   //base front right
+        float b2[] = {-size, -size, size};  //base front left
+        float b3[] = {-size, -size, -size}; //base back left
+        float b4[] = {size, -size, -size};  //base back right
 
         glBegin(GL_TRIANGLES);
             
-// front face
+            //front face
             glColor3f(1.0f, 0.0f, 0.0f);
             glVertex3fv(nose);
             glVertex3fv(b1);
             glVertex3fv(b2);
 
-// left face
+            //left face
             glColor3f(0.0f, 1.0f, 0.0f);
             glVertex3fv(nose);
             glVertex3fv(b2);
             glVertex3fv(b3);
 
-// back face
+            //back face
             glColor3f(0.0f, 0.0f, 1.0f);
             glVertex3fv(nose);
             glVertex3fv(b3);
             glVertex3fv(b4);
 
-// right face
+            //right face
             glColor3f(1.0f, 1.0f, 0.0f);
             glVertex3fv(nose);
             glVertex3fv(b4);
             glVertex3fv(b1);
 
-// base triangle 1
+            //base triangle 1
             glColor3f(0.5f, 0.5f, 0.5f);
             glVertex3fv(b1);
             glVertex3fv(b3);
             glVertex3fv(b2);
 
-// base triangle 2
+            //base triangle 2
             glColor3f(0.5f, 0.5f, 0.5f);
             glVertex3fv(b1);
             glVertex3fv(b4);
@@ -309,7 +366,7 @@ int main(){
 
             }
 
-//imgui render
+        //imgui render
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
